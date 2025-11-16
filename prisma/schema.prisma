@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and profiles
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  userETFs      UserETF[]
+
+  @@index([email])
+  @@index([createdAt]) // For sorting/filtering by creation date
+}
+
+// Stock model - stores individual stock information
+model Stock {
+  id            String    @id @default(cuid())
+  symbol        String    @unique
+  name          String
+  sector        String?
+  industry      String?
+  marketCap     Float?
+  currentPrice  Float
+  lastUpdated   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  etfCompositions  ETFComposition[]
+  priceHistory     PriceHistory[]
+
+  @@index([symbol])
+  @@index([sector])
+  @@index([lastUpdated]) // For finding stale data that needs updating
+  @@index([currentPrice]) // For price-based queries and sorting
+}
+
+// ETF model - both predefined and custom ETFs
+model ETF {
+  id              String    @id @default(cuid())
+  ticker          String    @unique
+  name            String
+  description     String?
+  weightingMethod String    // "MARKET_CAP", "PRICE_WEIGHTED", "EQUAL"
+  isCustom        Boolean   @default(false)
+  createdBy       String?   // User ID if custom
+  currentValue    Float?
+  lastUpdated     DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  compositions    ETFComposition[]
+  userETFs        UserETF[]
+  etfHistory      ETFHistory[]
+
+  @@index([ticker])
+  @@index([isCustom])
+  @@index([createdBy]) // For querying user's custom ETFs
+  @@index([lastUpdated]) // For finding stale ETF values
+  @@index([isCustom, createdBy]) // Composite index for filtering user's custom ETFs efficiently
+}
+
+// ETF Composition - many-to-many relationship between ETFs and Stocks
+model ETFComposition {
+  id            String    @id @default(cuid())
+  etfId         String
+  stockId       String
+  weight        Float     // Weight as percentage (0-100)
+  shares        Float?    // Number of shares (for calculation purposes)
+  addedAt       DateTime  @default(now())
+
+  // Relations
+  etf           ETF       @relation(fields: [etfId], references: [id], onDelete: Cascade)
+  stock         Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@unique([etfId, stockId])
+  @@index([etfId])
+  @@index([stockId])
+  @@index([etfId, weight(sort: Desc)]) // For efficiently retrieving sorted compositions by weight
+}
+
+// User's saved/created ETFs
+model UserETF {
+  id            String    @id @default(cuid())
+  userId        String
+  etfId         String
+  customName    String?   // User can rename their saved ETF
+  notes         String?
+  savedAt       DateTime  @default(now())
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  etf           ETF       @relation(fields: [etfId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, etfId])
+  @@index([userId])
+  @@index([etfId])
+  @@index([userId, savedAt(sort: Desc)]) // For efficiently retrieving user's recent saves
+}
+
+// Historical price data for stocks
+model PriceHistory {
+  id            String    @id @default(cuid())
+  stockId       String
+  price         Float
+  volume        BigInt?
+  timestamp     DateTime  @default(now())
+
+  // Relations
+  stock         Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@index([stockId, timestamp], map: "idx_price_history_stock_time")
+  @@index([timestamp(sort: Desc)], map: "idx_price_history_time_desc")
+}
+
+// Historical ETF value tracking
+model ETFHistory {
+  id            String    @id @default(cuid())
+  etfId         String
+  value         Float
+  timestamp     DateTime  @default(now())
+
+  // Relations
+  etf           ETF       @relation(fields: [etfId], references: [id], onDelete: Cascade)
+
+  @@index([etfId, timestamp], map: "idx_etf_history_etf_time")
+  @@index([timestamp(sort: Desc)], map: "idx_etf_history_time_desc")
+}

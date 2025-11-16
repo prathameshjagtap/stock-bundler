@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --app --eslint --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Read(//dev/**)",
+      "Bash(psql:*)",
+      "Bash(export PATH=\"/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH\")",
+      "Bash(createdb:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run db:migrate:*)",
+      "WebFetch(domain:massive.com)",
+      "WebFetch(domain:polygon.io)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "fetch"
+  ]
+}
