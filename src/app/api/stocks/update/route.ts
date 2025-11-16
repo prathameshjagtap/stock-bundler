@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getStockQuote, getStockOverview } from '@/lib/stockApi';
+import { getStockProviderSingleton } from '@/lib/stockDataProvider';
 import { cronRateLimit, getClientIdentifier, addRateLimitHeaders, rateLimitExceededResponse } from '@/lib/rate-limit';
 
 /**
@@ -26,6 +26,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get stock data provider (abstraction layer)
+    const provider = getStockProviderSingleton();
+    console.log(`[StockUpdate] Using provider: ${provider.getName()}`);
+
     // Get all stocks from database
     const stocks = await prisma.stock.findMany({
       select: {
@@ -41,8 +45,8 @@ export async function POST(request: Request) {
 
     for (const stock of stocks) {
       try {
-        // Fetch latest quote
-        const quote = await getStockQuote(stock.symbol);
+        // Fetch latest quote from configured provider
+        const quote = await provider.getStockQuote(stock.symbol);
 
         if (quote) {
           // Update stock price
@@ -73,6 +77,7 @@ export async function POST(request: Request) {
       } catch (error) {
         failed++;
         console.error(`Error updating ${stock.symbol}:`, error);
+        // Continue with other stocks instead of failing completely
       }
     }
 

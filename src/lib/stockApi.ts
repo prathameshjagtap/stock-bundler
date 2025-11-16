@@ -155,3 +155,56 @@ export async function batchGetStockQuotes(symbols: string[]): Promise<Map<string
 
   return quotes;
 }
+
+// ============================================================================
+// Provider Wrapper for Abstraction Layer
+// ============================================================================
+
+import { StockDataProvider } from './stockDataProvider';
+import { PriceData, SearchResult } from '@/types';
+
+/**
+ * Alpha Vantage provider implementation
+ * Wraps the existing Alpha Vantage functions into the StockDataProvider interface
+ */
+export class AlphaVantageProvider implements StockDataProvider {
+  getName(): string {
+    return 'Alpha Vantage';
+  }
+
+  async getStockQuote(symbol: string): Promise<StockQuote | null> {
+    return getStockQuote(symbol);
+  }
+
+  async getStockOverview(symbol: string): Promise<StockOverview | null> {
+    return getStockOverview(symbol);
+  }
+
+  async getHistoricalPrices(
+    symbol: string,
+    params: { from: Date; to: Date }
+  ): Promise<PriceData[]> {
+    // Alpha Vantage doesn't support date range filtering directly
+    // We fetch all data and filter client-side
+    const allPrices = await getHistoricalPrices(symbol, 'full');
+
+    return allPrices
+      .filter(p => p.date >= params.from && p.date <= params.to)
+      .map(p => ({
+        date: p.date,
+        price: p.price,
+        volume: p.volume,
+      }));
+  }
+
+  async searchStocks(query: string): Promise<SearchResult[]> {
+    // Alpha Vantage free tier doesn't have a search endpoint
+    // Return empty array - search will fall back to database
+    console.warn('[AlphaVantage] Search not supported, use database fallback');
+    return [];
+  }
+
+  async batchGetQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
+    return batchGetStockQuotes(symbols);
+  }
+}

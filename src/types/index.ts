@@ -69,3 +69,19 @@ export interface UpdateETFCompositionInput {
   addStocks?: string[];
   removeStocks?: string[];
 }
+
+// Re-export Massive.com API types
+export type {
+  StockQuote,
+  StockOverview,
+  PriceData,
+  SearchResult,
+  MassiveApiResponse,
+  MassivePreviousDayBar,
+  MassiveTickerDetails,
+  MassiveTickerSearchResult,
+  MassiveAggregateBar,
+} from './massive';
+
+// Export class and enum (not as type, since they're used as values)
+export { MassiveApiError, MassiveErrorType } from './massive';
