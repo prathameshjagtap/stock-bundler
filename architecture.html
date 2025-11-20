@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Bundler - Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h1,
+        h2 {
+            color: #2c3e50;
+        }
+
+        .diagram-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+            overflow-x: auto;
+        }
+
+        .diagram-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #444;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .mermaid {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Stock Bundler - Architectural Diagrams</h1>
+    <p>This document provides a visual representation of the Stock Bundler project's architecture, including hardware,
+        software, and process flows.</p>
+
+    <!-- High Level Hardware Architecture -->
+    <div class="diagram-container">
+        <div class="diagram-title">1. High Level Hardware Architecture</div>
+        <div class="mermaid">
+            graph TD
+            Client["Client Device<br />(Browser)"]
+            Vercel["Vercel Platform<br />(Next.js App Server)"]
+            DB[(PostgreSQL Database)]
+            AlphaVantage["Alpha Vantage API<br />(External Service)"]
+
+            Client -- HTTPS --> Vercel
+            Vercel -- TCP/IP --> DB
+            Vercel -- HTTPS --> AlphaVantage
+
+            subgraph Cloud Infrastructure
+            Vercel
+            DB
+            end
+        </div>
+    </div>
+
+    <!-- High Level Software Architecture -->
+    <div class="diagram-container">
+        <div class="diagram-title">2. High Level Software Architecture</div>
+        <div class="mermaid">
+            graph TD
+            subgraph Frontend
+            React[React.js Components]
+            NextPages[Next.js App Router]
+            Tailwind[Tailwind CSS]
+            end
+
+            subgraph Backend
+            NextAPI[Next.js API Routes]
+            NextAuth[NextAuth.js]
+            Prisma[Prisma ORM]
+            Services[Services / Libs]
+            end
+
+            subgraph Data
+            Postgres[(PostgreSQL)]
+            end
+
+            React --> NextPages
+            NextPages --> NextAPI
+            NextAPI --> NextAuth
+            NextAPI --> Services
+            Services --> Prisma
+            Prisma --> Postgres
+        </div>
+    </div>
+
+    <!-- Detailed Software Architecture -->
+    <div class="diagram-container">
+        <div class="diagram-title">3. Detailed Software Architecture (Web App & Batch Job)</div>
+        <div class="mermaid">
+            graph TD
+            subgraph "Web Application Flow"
+            User[User]
+            Browser[Browser]
+            AuthAPI[Auth API]
+            ETF_API[ETF API]
+            Stock_API[Stock API]
+
+            User --> Browser
+            Browser --> AuthAPI
+            Browser --> ETF_API
+            Browser --> Stock_API
+            end
+
+            subgraph "Batch Job Flow"
+            Cron[Cron Scheduler]
+            UpdateAPI[Update API Endpoint]
+            StockProvider[StockDataProvider]
+            AlphaVantage[Alpha Vantage]
+            end
+
+            subgraph "Data Layer"
+            PrismaClient[Prisma Client]
+            DB[(PostgreSQL)]
+            end
+
+            ETF_API --> PrismaClient
+            Stock_API --> PrismaClient
+
+            Cron --> UpdateAPI
+            UpdateAPI --> StockProvider
+            StockProvider --> AlphaVantage
+            UpdateAPI --> PrismaClient
+
+            PrismaClient --> DB
+        </div>
+    </div>
+
+    <!-- Sequence Diagram: ETF Creation -->
+    <div class="diagram-container">
+        <div class="diagram-title">4. Flow: Custom ETF Creation</div>
+        <div class="mermaid">
+            graph TD
+            User((User))
+            Client[Client Browser]
+            API[API: /api/etfs]
+            Auth[NextAuth]
+            DB[(Database)]
+            Calc[Calculation Logic]
+
+            User -- "1. Fill & Submit Form" --> Client
+            Client -- "2. POST Request (JSON)" --> API
+            API -- "3. Validate Session" --> Auth
+            Auth -- "4. Session Valid" --> API
+            API -- "5. Validate Input (Zod)" --> API
+            API -- "6. Check Ticker Existence" --> DB
+            DB -- "7. Ticker Available" --> API
+            API -- "8. Create ETF Record" --> DB
+            API -- "9. Fetch Stock Prices" --> DB
+            DB -- "10. Return Stock Data" --> API
+            API -- "11. Calculate Weights" --> Calc
+            Calc -- "12. Weighted List" --> API
+            API -- "13. Save Compositions" --> DB
+            DB -- "14. Success" --> API
+            API -- "15. Return Created ETF" --> Client
+            Client -- "16. Show Success UI" --> User
+
+            classDef actor fill:#f9f,stroke:#333,stroke-width:2px;
+            class User actor;
+        </div>
+    </div>
+
+    <!-- Sequence Diagram: Stock Update Batch Job -->
+    <div class="diagram-container">
+        <div class="diagram-title">5. Flow: Stock Update Batch Job</div>
+        <div class="mermaid">
+            graph TD
+            Cron((Cron Job))
+            API[API: /api/stocks/update]
+            Provider[StockDataProvider]
+            External[Alpha Vantage API]
+            DB[(Database)]
+
+            Cron -- "1. Trigger Update (Bearer Token)" --> API
+            API -- "2. Verify Rate Limit & Secret" --> API
+            API -- "3. Fetch All Stocks" --> DB
+            DB -- "4. Return Stock List" --> API
+
+            subgraph "Loop Per Stock"
+            API -- "5. Request Quote" --> Provider
+            Provider -- "6. Call External API" --> External
+            External -- "7. Return Quote Data" --> Provider
+            Provider -- "8. Return Quote Object" --> API
+            API -- "9. Update Price & History" --> DB
+            end
+
+            API -- "10. Return Summary Stats" --> Cron
+
+            classDef trigger fill:#f9f,stroke:#333,stroke-width:2px;
+            class Cron trigger;
+        </div>
+    </div>
+
+    <!-- Flow: View ETF & Value Computation -->
+    <div class="diagram-container">
+        <div class="diagram-title">6. Flow: View ETF & Value Computation</div>
+        <div class="mermaid">
+            graph TD
+            User((User))
+            Client[Client Browser]
+            API["API: /api/etfs/{id}"]
+            DB[(Database)]
+            Calc[Calculation Logic]
+            Graph[Graph Renderer]
+
+            User -- "1. View ETF Page" --> Client
+            Client -- "2. Fetch ETF Details" --> API
+            API -- "3. Query ETF + Compositions" --> DB
+            DB -- "4. Return Data (Weights & Prices)" --> API
+            API -- "5. Return ETF Object" --> Client
+
+            Client -- "6. Fetch Historical Data" --> API
+            API -- "7. Query Stock Price History" --> DB
+            DB -- "8. Return Price Series (All Stocks)" --> API
+
+            subgraph "Value Computation"
+            API -- "9. Input: Prices & Weights" --> Calc
+            Calc -- "10. Apply Weighting Method" --> Calc
+            Calc -- "11. Output: ETF Value Series" --> API
+            end
+
+            API -- "12. Return History JSON" --> Client
+            Client -- "13. Render Chart" --> Graph
+            Graph -- "14. Display Visuals" --> User
+
+            classDef actor fill:#f9f,stroke:#333,stroke-width:2px;
+            class User actor;
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</body>
+
+</html>

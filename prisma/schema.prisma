@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // User model for authentication and profiles
@@ -38,6 +39,11 @@ model Stock {
   lastUpdated   DateTime  @default(now())
   createdAt     DateTime  @default(now())
 
+  // Flat file metadata
+  firstTradeDate   DateTime? // When stock first appeared in historical data
+  lastTradeDate    DateTime? // Most recent trade date in our data
+  dataCompleteness Float?    // Percentage of trading days with data (0-100)
+
   // Relations
   etfCompositions  ETFComposition[]
   priceHistory     PriceHistory[]
@@ -46,6 +52,8 @@ model Stock {
   @@index([sector])
   @@index([lastUpdated]) // For finding stale data that needs updating
   @@index([currentPrice]) // For price-based queries and sorting
+  @@index([firstTradeDate])
+  @@index([lastTradeDate])
 }
 
 // ETF model - both predefined and custom ETFs
@@ -111,19 +119,37 @@ model UserETF {
   @@index([userId, savedAt(sort: Desc)]) // For efficiently retrieving user's recent saves
 }
 
+// Enum for price data granularity
+enum PriceGranularity {
+  DAY      // Daily OHLCV bars
+  MINUTE   // Minute-level OHLCV bars
+}
+
 // Historical price data for stocks
 model PriceHistory {
-  id            String    @id @default(cuid())
+  id            String           @id @default(cuid())
   stockId       String
-  price         Float
+  price         Float            // Close price
   volume        BigInt?
-  timestamp     DateTime  @default(now())
+  timestamp     DateTime         @default(now())
+
+  // Additional OHLCV fields (from flat files)
+  open          Float?
+  high          Float?
+  low           Float?
+  vwap          Float?           // Volume weighted average price
+  transactions  Int?             // Number of transactions (n field)
+
+  // Granularity - supports both day and minute data
+  granularity   PriceGranularity @default(DAY)
 
   // Relations
   stock         Stock     @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
+  @@unique([stockId, timestamp, granularity], name: "unique_price_per_granularity")
   @@index([stockId, timestamp], map: "idx_price_history_stock_time")
   @@index([timestamp(sort: Desc)], map: "idx_price_history_time_desc")
+  @@index([stockId, granularity, timestamp], map: "idx_price_granularity_time")
 }
 
 // Historical ETF value tracking
@@ -138,4 +164,78 @@ model ETFHistory {
 
   @@index([etfId, timestamp], map: "idx_etf_history_etf_time")
   @@index([timestamp(sort: Desc)], map: "idx_etf_history_time_desc")
+}
+
+// ============================================================================
+// Flat File Bulk Download Tracking
+// ============================================================================
+
+// Enum for download job status
+enum DownloadJobStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Enum for date download status
+enum DateDownloadStatus {
+  PENDING
+  DOWNLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Tracks bulk download jobs (e.g., "Download 5 years of day aggregates")
+model FlatFileDownloadJob {
+  id              String            @id @default(cuid())
+  dataType        String            // 'day_aggs_v1', 'minute_aggs_v1', etc.
+  startDate       DateTime
+  endDate         DateTime
+  status          DownloadJobStatus @default(PENDING)
+  totalDates      Int               // Total trading days in range
+  completedDates  Int               @default(0)
+  failedDates     Int               @default(0)
+  errorMessage    String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Metadata
+  concurrency     Int               @default(10)
+  totalRecords    BigInt            @default(0) // Total price records inserted
+
+  // Relations
+  dateProgress    DateDownloadProgress[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@index([dataType, status])
+}
+
+// Tracks individual date file downloads within a job
+model DateDownloadProgress {
+  id               String             @id @default(cuid())
+  jobId            String
+  date             String             // YYYY-MM-DD format
+  status           DateDownloadStatus @default(PENDING)
+  recordsProcessed Int                @default(0)
+  fileSize         BigInt?            // Size in bytes
+  errorMessage     String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  durationMs       Int?               // Processing duration in milliseconds
+  createdAt        DateTime           @default(now())
+
+  // Relations
+  job              FlatFileDownloadJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, date])
+  @@index([jobId])
+  @@index([status])
+  @@index([date])
+  @@index([jobId, status])
 }
