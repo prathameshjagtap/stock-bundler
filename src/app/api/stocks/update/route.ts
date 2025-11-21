@@ -5,7 +5,7 @@ import { cronRateLimit, getClientIdentifier, addRateLimitHeaders, rateLimitExcee
 
 /**
  * API route to update stock prices
- * This will be called by a cron job every 15 minutes
+ * This will be called by a cron job once daily
  */
 export async function POST(request: Request) {
   try {
