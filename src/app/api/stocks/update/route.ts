@@ -7,7 +7,7 @@ import { cronRateLimit, getClientIdentifier, addRateLimitHeaders, rateLimitExcee
  * API route to update stock prices
  * This will be called by a cron job once daily
  */
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
     // ✅ CHECK RATE LIMIT (3 requests per minute - very strict for cron)
     const identifier = getClientIdentifier(request);
