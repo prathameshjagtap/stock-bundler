@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   solve-issue:
-    runs-on: claude-ec2
+    runs-on: self-hosted
     # Prevent the bot from triggering itself if it opens issues
     if: ${{ github.actor != 'github-actions[bot]' }}
 
