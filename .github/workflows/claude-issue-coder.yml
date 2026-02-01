@@ -33,7 +33,7 @@ jobs:
 
       - name: Create Issue Branch
         id: create-branch
-	        run: |
+        run: |
           BRANCH_NAME="feat/issue-${{ env.ISSUE_NUMBER }}"
           git checkout -b $BRANCH_NAME
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
