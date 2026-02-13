@@ -7,7 +7,54 @@ This guide covers how to deploy the Stock Bundler application to **Vercel** (Fro
 - [Vercel Account](https://vercel.com/signup)
 - [Supabase Account](https://supabase.com/dashboard/sign-up)
 - [Alpha Vantage API Key](https://www.alphavantage.co/support/#api-key)
-- [GitHub Account](https://github.com/) (recommended for Vercel integration)
+- [GitHub Account](https://github.com/) (required for automated deployment)
+
+## Quick Start: Automated GitHub Actions Deployment
+
+This repository includes a GitHub Actions workflow for automatic deployments. Follow these steps:
+
+### 1. Create a Vercel Project
+
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click **Add New** → **Project**
+3. Import your GitHub repository
+4. Configure the project (Next.js will be auto-detected)
+5. **Important**: Do NOT deploy yet - just create the project
+
+### 2. Get Vercel Credentials
+
+1. **VERCEL_TOKEN**: Go to [Vercel Tokens](https://vercel.com/account/tokens) → Create a new token
+2. **VERCEL_ORG_ID**: Go to Vercel Dashboard → Settings → General → copy "Vercel ID"
+3. **VERCEL_PROJECT_ID**: Go to your project → Settings → General → copy "Project ID"
+
+### 3. Add GitHub Secrets
+
+Go to your GitHub repo → Settings → Secrets and variables → Actions → New repository secret:
+
+- `VERCEL_TOKEN` - Your Vercel API token
+- `VERCEL_ORG_ID` - Your Vercel Organization/Account ID  
+- `VERCEL_PROJECT_ID` - Your Vercel Project ID
+
+### 4. Add Vercel Environment Variables
+
+In Vercel Dashboard → Your Project → Settings → Environment Variables, add:
+
+| Variable | Description |
+| :--- | :--- |
+| `DATABASE_URL` | Supabase Transaction Pooler URL (port 6543) |
+| `DIRECT_URL` | Supabase Direct Connection URL (port 5432) |
+| `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Your Vercel deployment URL |
+| `ALPHA_VANTAGE_API_KEY` | Your Alpha Vantage API Key |
+| `CRON_SECRET` | Secret for securing cron jobs |
+
+### 5. Deploy
+
+Push to the `main` branch - GitHub Actions will automatically deploy to production!
+
+---
+
+## Manual Deployment (Alternative)
 
 ## 1. Database Setup (Supabase)
 
